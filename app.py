@@ -22,7 +22,7 @@ options = [
 choice = st.selectbox("What would you like to do?", options)
 
 # ---- 3️⃣ Hugging Face API Setup ----
-API_URL = "https://api-inference.huggingface.co/models/bigscience/bloomz-560m"
+API_URL = "https://api-inference.huggingface.co/models/google/flan-t5-small"
 headers = {"Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}"}
 
 def query_huggingface(payload):
