@@ -1,10 +1,8 @@
 import streamlit as st
 import requests
 
-# ---- Streamlit Page Config ----
 st.set_page_config(page_title="AI Exam Revision Agent", page_icon="📚")
 
-# ---- App Title & Description ----
 st.title("📚 AI Revision Agent for School-Level Exams")
 st.write("Helping you revise smarter with summaries, quizzes, and interactive tests!")
 
@@ -24,7 +22,7 @@ options = [
 choice = st.selectbox("What would you like to do?", options)
 
 # ---- 3️⃣ Hugging Face API Setup ----
-API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+API_URL = "https://api-inference.huggingface.co/models/bigscience/bloomz-560m"
 headers = {"Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}"}
 
 def query_huggingface(payload):
