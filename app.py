@@ -1,69 +1,64 @@
 import streamlit as st
-from huggingface_hub import login
-from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 import requests
 
-# Hugging Face Inference API Endpoint (No need to load model locally)
-API_URL = "https://api-inference.huggingface.co/models/microsoft/Phi-3-mini-4k-instruct"
-headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
+# ---- Streamlit Page Config ----
+st.set_page_config(page_title="AI Exam Revision Agent", page_icon="📚")
 
-def query(payload):
-    response = requests.post(API_URL, headers=headers, json=payload)
-    return response.json()
+# ---- App Title & Description ----
+st.title("📚 AI Revision Agent for School-Level Exams")
+st.write("Helping you revise smarter with summaries, quizzes, and interactive tests!")
 
-# Streamlit App UI
-st.title("📚 AI Revision Assistant (Up to School Level)")
-st.write("Hi! I'm your AI Study Buddy. I can help with any subject, topic, or syllabus up to school level. Let's start!")
+# ---- 1️⃣ Gather User Input ----
+subject = st.text_input("Enter your subject (e.g., Science, Math, History):")
+topic = st.text_input("Enter your specific topic:")
+syllabus = st.text_area("Briefly describe the syllabus (chapters, scope):")
 
-if "history" not in st.session_state:
-    st.session_state.history = []
+# ---- 2️⃣ Offer Task Menu ----
+options = [
+    "Summary Notes",
+    "Quiz (MCQ/True-False)",
+    "Fill in the Blanks",
+    "Match the Columns",
+    "Complete the Code"
+]
+choice = st.selectbox("What would you like to do?", options)
 
-subject = st.text_input("What subject are you studying?")
-topic = st.text_input("What specific topic within this subject?")
-syllabus = st.text_input("Which syllabus or board? (CBSE, ICSE, State Board, Cambridge, etc.)")
+# ---- 3️⃣ Hugging Face API Setup ----
+API_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.1"
+headers = {"Authorization": f"Bearer {st.secrets['HUGGINGFACE_API_KEY']}"}
 
-option = st.radio(
-    "What would you like help with?",
-    ["Summary (Bullet Points)", "Quiz (MCQ / True-False)", "Interactive Test (Fill Blanks, Match, Arrange Steps)",
-     "Flashcards", "Code Completion / Output Prediction (if coding-related)"]
-)
+def query_huggingface(payload):
+    try:
+        response = requests.post(API_URL, headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()[0]['generated_text']
+    except Exception as e:
+        st.error(f"API Error: {e}")
+        return None
 
-instruction_template = f"""
-You are a friendly AI Revision Agent helping students up to school level.
-Subject: {subject}
-Topic: {topic}
-Syllabus: {syllabus}
+# ---- 4️⃣ Build Prompt ----
+if st.button("Generate"):
+    if not (subject and topic and syllabus):
+        st.warning("Please fill in all the details first.")
+    else:
+        prompt = (
+            f"You are a helpful AI teacher assisting a school-level student in exam preparation.\n\n"
+            f"Subject: {subject}\n"
+            f"Topic: {topic}\n"
+            f"Syllabus: {syllabus}\n"
+            f"Task: {choice}\n\n"
+            "Provide clear, structured, easy-to-understand output suitable for school students. "
+            "Make it engaging, educational, and concise."
+        )
 
-Option selected: {option}
+        with st.spinner("Generating..."):
+            output = query_huggingface({"inputs": prompt})
 
-Provide clear markdown-formatted outputs (headings, bullet points, numbered lists where appropriate).
-Make the content detailed enough for meaningful revision.
-If the output is long, ask: 'Would you like me to continue this in smaller parts? Reply "Continue".'
+        if output:
+            st.success("Here’s your result:")
+            st.markdown(output)
 
-At the end of the output, add:
-💡 A study tip (Pomodoro, Active Recall, etc.)
-👏 A motivational reward ('You've earned ⭐️⭐️⭐️ for today!')
-
-Always offer follow-up: 'Would you like more questions, bullet points, or another option?'
-"""
-
-if st.button("Generate Revision Material"):
-    with st.spinner("Generating your revision material..."):
-        output = query({"inputs": instruction_template})
-        if "error" in output:
-            st.error(output["error"])
-        else:
-            st.markdown(output[0]["generated_text"])
-            st.session_state.history.append({
-                "Subject": subject,
-                "Topic": topic,
-                "Syllabus": syllabus,
-                "Option": option,
-                "Output": output[0]["generated_text"]
-            })
-
-if st.checkbox("Show My Revision History"):
-    for idx, item in enumerate(st.session_state.history, start=1):
-        st.markdown(f"**{idx}. Subject:** {item['Subject']} | **Topic:** {item['Topic']} | **Option:** {item['Option']}")
-        st.markdown(item["Output"])
-        st.markdown("---")
+# ---- 5️⃣ Follow-up & Motivation ----
+st.write("---")
+st.write("🎉 Need more help? Just ask again!")
+st.caption("🚀 Hack Tip: Study small, test often. You’ve got this! 💪 Stay confident.")
