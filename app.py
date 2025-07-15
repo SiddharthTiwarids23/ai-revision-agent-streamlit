@@ -1,30 +1,19 @@
 import streamlit as st
 from huggingface_hub import login
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+import requests
 
-# Hugging Face Token Login
-login(st.secrets["HF_TOKEN"])
+# Hugging Face Inference API Endpoint (No need to load model locally)
+API_URL = "https://api-inference.huggingface.co/models/microsoft/Phi-3-mini-4k-instruct"
+headers = {"Authorization": f"Bearer {st.secrets['HF_TOKEN']}"}
 
-# Load Phi-3 Model
-model_id = "microsoft/Phi-3-mini-4k-instruct"
-tokenizer = AutoTokenizer.from_pretrained(model_id)
-model = AutoModelForCausalLM.from_pretrained(model_id, device_map="auto")
+def query(payload):
+    response = requests.post(API_URL, headers=headers, json=payload)
+    return response.json()
 
-revision_agent = pipeline(
-    "text-generation",
-    model=model,
-    tokenizer=tokenizer,
-    pad_token_id=tokenizer.eos_token_id,
-    device_map="auto",
-    max_length=512,
-    do_sample=True,
-    temperature=0.7,
-    top_p=0.9
-)
-
-# Streamlit UI
+# Streamlit App UI
 st.title("📚 AI Revision Assistant (Up to School Level)")
-st.write("Hi! I'm your AI Study Buddy. How can I help you today with your school studies?")
+st.write("Hi! I'm your AI Study Buddy. I can help with any subject, topic, or syllabus up to school level. Let's start!")
 
 if "history" not in st.session_state:
     st.session_state.history = []
@@ -47,27 +36,31 @@ Syllabus: {syllabus}
 
 Option selected: {option}
 
-Provide clear markdown-formatted outputs (headings, bullet points, etc.). 
-End with a study tip and motivational message.
+Provide clear markdown-formatted outputs (headings, bullet points, numbered lists where appropriate).
+Make the content detailed enough for meaningful revision.
+If the output is long, ask: 'Would you like me to continue this in smaller parts? Reply "Continue".'
+
+At the end of the output, add:
+💡 A study tip (Pomodoro, Active Recall, etc.)
+👏 A motivational reward ('You've earned ⭐️⭐️⭐️ for today!')
+
+Always offer follow-up: 'Would you like more questions, bullet points, or another option?'
 """
 
 if st.button("Generate Revision Material"):
-    with st.spinner("Generating content..."):
-        response = revision_agent(
-            instruction_template,
-            max_new_tokens=300,
-            pad_token_id=tokenizer.eos_token_id
-        )
-        output = response[0]['generated_text'].split("AI:")[-1].strip()
-
-    st.markdown(output)
-    st.session_state.history.append({
-        "Subject": subject,
-        "Topic": topic,
-        "Syllabus": syllabus,
-        "Option": option,
-        "Output": output
-    })
+    with st.spinner("Generating your revision material..."):
+        output = query({"inputs": instruction_template})
+        if "error" in output:
+            st.error(output["error"])
+        else:
+            st.markdown(output[0]["generated_text"])
+            st.session_state.history.append({
+                "Subject": subject,
+                "Topic": topic,
+                "Syllabus": syllabus,
+                "Option": option,
+                "Output": output[0]["generated_text"]
+            })
 
 if st.checkbox("Show My Revision History"):
     for idx, item in enumerate(st.session_state.history, start=1):
